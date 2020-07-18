@@ -1,0 +1,40 @@
+packet_id = 9 (nmea0183_wrapper):
+The packet payload contains an NMEA 0183 sentence. You'll probably have to parse that and decide if it corresponds to something that is appropriate to enter into the SL2 file.
+
+
+packet_id = 1308 (profile6):
+Packet payload is this (packed) structure:
+struct profile6_t
+	{
+		u32		ping_number;
+		u32		start_mm;
+		u32		length_mm;
+		u32		start_ping_hz;
+		u32		end_ping_hz;		// if same then not chirp
+		u32		adc_sample_hz;
+		u32		timestamp_msec = 0;	// msec since the f/w has started up
+		u32		spare2 = 0;
+		float		ping_duration_sec;
+		float		analog_gain;
+		float		max_pwr;		// db value if is_db
+		float		min_pwr;		// ditto
+		float		step_db;
+		float		fspare1 = 0;
+		float		fspare2 = 0;
+		u8		is_db;			// if true, results are scaled linearly in db, else linearly in pwr
+		u8		gain_index;
+		u8		decimation;
+		u8		reserved = 0;
+		u16	 	num_results;
+		u16		scaled_db_pwr_results[];
+};
+
+To minimize the size of this packet and maintain good dynamic range, this reflected signal data is stored in an array of 16 bit numbers representing db values. This is how you convert the scaled 16 bit values to float power values:
+
+    for (int i = 0; i < pf.num_results; i++)
+	{
+		float db = pf.min_pwr + (float) pf.scaled_db_pwr_results[i] * pf.step_db;
+		m_pwr_results[i] = powf(10.0f, 0.1f * db);
+	}
+
+Where pf is a profile6_t structure and m_pwr_results is an array of float values.
